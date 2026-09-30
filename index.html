@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kuis Fisika Statistik - Bab 4</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--ink:#1f2430;--muted:#667085;--line:#e3e6ee;--brand:#2b5cff;--ok:#12805c;--okbg:#e6f6ef;--bad:#b42318;--badbg:#fdeceb}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:1.4rem;margin:8px 0 2px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  label.f{display:block;font-weight:600;margin-bottom:10px}
+  input[type=text]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;margin-top:4px}
+  .q .n{font-weight:700;color:var(--brand)}
+  .q p{margin:0 0 10px}
+  .opt{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:7px;cursor:pointer}
+  .opt:hover{border-color:var(--brand)}
+  .opt input{margin-top:5px}
+  .opt.ok{background:var(--okbg);border-color:var(--ok)}
+  .opt.bad{background:var(--badbg);border-color:var(--bad)}
+  .exp{margin-top:8px;padding:9px 11px;background:#f1f4ff;border-radius:8px;font-size:.93rem}
+  button{font:inherit;font-weight:600;padding:11px 18px;border:0;border-radius:9px;background:var(--brand);color:#fff;cursor:pointer}
+  button.sec{background:#e9edf7;color:var(--ink)}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .bar{position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:2;font-size:.9rem;color:var(--muted)}
+  .prog{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:4px}
+  .prog>i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
+  #result{display:none}
+  .score{font-size:2.2rem;font-weight:800}
+  .status{margin-top:8px;font-size:.93rem}
+  .warn{color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Kuis Fisika Statistik: Bab 4</h1>
+  <p class="sub">Menentukan Parameter Statistik (β dan α). 20 soal pilihan ganda, skor maksimum 100.</p>
+
+  <div class="card" id="idcard">
+    <label class="f">Nama lengkap
+      <input type="text" id="nama" autocomplete="name" placeholder="Nama Anda">
+    </label>
+    <label class="f" style="margin-bottom:0">NIM
+      <input type="text" id="nim" inputmode="numeric" placeholder="NIM">
+    </label>
+  </div>
+
+  <div class="bar">
+    <span id="count">Terjawab 0 / 20</span>
+    <div class="prog"><i id="pbar"></i></div>
+  </div>
+
+  <form id="quiz"></form>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button id="submit" type="button">Kirim jawaban</button>
+  </div>
+  <div class="status warn" id="err"></div>
+
+  <div class="card" id="result" style="margin-top:16px">
+    <div>Skor Anda</div>
+    <div class="score" id="score"></div>
+    <div id="detail" class="sub"></div>
+    <div class="status" id="sendstatus"></div>
+    <div style="margin-top:12px"><button class="sec" id="csv" type="button">Unduh hasil (CSV)</button></div>
+  </div>
+</div>
+
+<script>
+/* ====== PENGATURAN ======
+   Tempel URL Web App Google Apps Script (berakhiran /exec) di sini.
+   Jika dikosongkan, hasil tidak dikirim dan hanya bisa diunduh sebagai CSV. */
+const CONFIG = { ENDPOINT: "" };
+
+const Q = [
+ {q:"Pada penurunan statistik Maxwell-Boltzmann, parameter β harus bernilai negatif. Apa alasannya?",
+  o:["Agar jumlah partikel total selalu konstan","Agar jumlah sistem pada energi yang sangat besar menuju nol, karena tidak ada sistem berenergi tak berhingga","Agar entropi selalu bernilai positif","Agar volume assembli tidak berubah"],
+  a:1,e:"Dari n_s = g_s exp(α+βE_s), agar n_s → 0 saat E_s → ∞ maka β harus negatif (Sub-bab 4.1)."},
+ {q:"Untuk mencari bentuk β, dua assembli terisolasi digabung melalui satu sisi. Apa yang diizinkan di batas kontak?",
+  o:["Pertukaran partikel dan energi","Hanya pertukaran partikel","Pertukaran energi, tetapi tidak pertukaran partikel","Tidak ada pertukaran apa pun"],
+  a:2,e:"Jumlah partikel N₁ dan N₂ tetap, sedangkan energi masing-masing assembli boleh berubah (Gbr. 4.1)."},
+ {q:"Pada assembli gabungan tersebut, berapa pengali Lagrange yang diperkenalkan dan apa saja?",
+  o:["Dua: α dan β","Tiga: α₁, α₂, dan β","Satu: β saja","Empat: α₁, α₂, β₁, dan β₂"],
+  a:1,e:"Ada tiga kendala (N₁ tetap, N₂ tetap, U = U₁+U₂ tetap), sehingga dibutuhkan α₁, α₂, dan β (Pers. 4.10)."},
+ {q:"Setelah dua assembli digabung, hubungan antara W gabungan dan W masing-masing adalah ...",
+  o:["W = W₁ + W₂","W = W₁ W₂, sehingga ln W = ln W₁ + ln W₂","W = W₁ / W₂","W = (W₁ W₂)²"],
+  a:1,e:"Probabilitas penyusunan gabungan adalah hasil kali, sehingga logaritmanya menjadi penjumlahan (Pers. 4.9)."},
+ {q:"Persamaan (4.13) dan (4.14) memuat β yang sama untuk kedua assembli. Kesimpulan apa yang diambil?",
+  o:["β bergantung pada jumlah partikel","β bergantung pada volume","β hanya fungsi suhu, karena suhu adalah besaran yang sama sebelum dan sesudah digabung","β merupakan konstanta universal tanpa ketergantungan apa pun"],
+  a:2,e:"Besaran yang tidak berubah saat dua assembli berkesetimbangan termal hanyalah suhu, sehingga β = β(T) (Pers. 4.15)."},
+ {q:"Hukum termodinamika yang dipakai pada Sub-bab 4.2 ditulis dU = dQ − p dV. Suku Σ E_s δn_s pada δU sesuai dengan ...",
+  o:["Kerja akibat perubahan volume","Kalor yang diberikan, δQ","Perubahan jumlah partikel","Perubahan entropi"],
+  a:1,e:"Suku pertama Σ E_s δn_s menyatakan kontribusi pemberian kalor: Σ E_s δn_s = δQ (Pers. 4.18)."},
+ {q:"Suku Σ n_s δE_s pada diferensial U dikaitkan dengan ...",
+  o:["−p dV, karena perubahan volume mengubah tingkat-tingkat energi","δQ, karena kalor mengubah tingkat energi","δN, karena partikel bertambah","Nol, karena tingkat energi selalu tetap"],
+  a:0,e:"Tingkat energi bergantung pada ukuran assembli, sehingga Σ n_s δE_s = −p dV (Pers. 4.19)."},
+ {q:"Jika dinding assembli tegar sehingga volume tidak berubah, hubungan probabilitas maksimum menjadi ...",
+  o:["δ ln W = β δQ","δ ln W = −β δQ","δ ln W = −α δN","δ ln W = 0"],
+  a:1,e:"Dengan δU = δQ dan δN = 0, dari δlnW + αδN + βδU = 0 diperoleh δlnW = −β δQ (Pers. 4.22)."},
+ {q:"Mengapa Pers. (4.22), δ ln W = −β δQ, tampak tidak konsisten?",
+  o:["ln W tidak pernah berubah","δQ bukan diferensial sejati, sedangkan δ ln W adalah diferensial sejati","β bernilai imajiner","Suhu tidak terdefinisi"],
+  a:1,e:"ln W adalah fungsi keadaan (diferensial sejati), sedangkan δQ tidak dapat dinyatakan sebagai selisih dua nilai suatu fungsi."},
+ {q:"Besaran termodinamika apa yang membuat ruas kanan Pers. (4.22) menjadi diferensial sejati dan mengarah pada β ∝ 1/T?",
+  o:["δQ × T","δQ / T, yaitu entropi","δQ − p dV","δQ + δW"],
+  a:1,e:"δQ/T adalah dS (diferensial sejati), sehingga β harus sebanding dengan 1/T."},
+ {q:"Bentuk umum β sebagai fungsi suhu yang diperoleh pada Sub-bab 4.2 adalah ...",
+  o:["β = kT","β = −kT","β = 1/kT","β = −1/kT"],
+  a:3,e:"Karena β ∝ 1/T dan β negatif, β = −1/kT (Pers. 4.23), dengan k kemudian dibuktikan sebagai konstanta Boltzmann."},
+ {q:"Energi kinetik rata-rata satu atom gas yang hanya bergerak translasi tiga dimensi (Pers. 4.24) adalah ...",
+  o:["kT/2","kT","3kT/2","3kT"],
+  a:2,e:"Sesuai teori kinetik gas ideal, ⟨E⟩ = (3/2) kT."},
+ {q:"Pada Sub-bab 4.3, pembilang integral energi rata-rata, ∫ E^(3/2) e^(βE) dE, diselesaikan dengan ...",
+  o:["Substitusi trigonometri","Integral parsial, yang mengubahnya menjadi −(3/2β) ∫ E^(1/2) e^(βE) dE","Deret Taylor","Transformasi Laplace"],
+  a:1,e:"Dipakai aturan ∫u dv = uv − ∫v du. Suku batas bernilai nol karena β negatif (Pers. 4.27–4.28)."},
+ {q:"Hasil perhitungan energi rata-rata partikel dari distribusi n(E) pada Sub-bab 4.3 adalah ...",
+  o:["⟨E⟩ = −3/(2β)","⟨E⟩ = 3β/2","⟨E⟩ = −β/3","⟨E⟩ = 2/(3β)"],
+  a:0,e:"Rasio kedua integral memberi ⟨E⟩ = −3/(2β)."},
+ {q:"Dengan menyamakan ⟨E⟩ = −3/(2β) dengan 3kT/2, diperoleh ...",
+  o:["β = kT","β = 1/kT","β = −kT","β = −1/kT"],
+  a:3,e:"−3/(2β) = 3kT/2 memberikan β = −1/kT, sama dengan hasil argumen entropi, dan sekaligus membuktikan k adalah konstanta Boltzmann."},
+ {q:"Penentuan α (Sub-bab 4.4) dimulai dari penjumlahan n_s = g_s e^(α+βE_s) untuk semua s. Ruas kiri penjumlahan tersebut menghasilkan ...",
+  o:["Energi total U","Jumlah total sistem N","Entropi S","Fungsi partisi Z"],
+  a:1,e:"Σ n_s = N, sehingga N = e^α Σ g_s e^(βE_s) (Pers. 4.29)."},
+ {q:"Nilai fungsi gamma yang muncul saat menghitung integral pada Sub-bab 4.4 adalah Γ(3/2) sama dengan ...",
+  o:["1","√π","π/2","√π / 2"],
+  a:3,e:"Γ(3/2) = √π/2, yang muncul setelah substitusi y = −βE."},
+ {q:"Hasil integral ∫₀^∞ E^(1/2) e^(βE) dE (Pers. 4.32) adalah ...",
+  o:["(√π/2)(−1/β)^(3/2)","(√π/2)(−β)^(3/2)","(π/2)(−1/β)^(1/2)","√π (−1/β)^(2/3)"],
+  a:0,e:"Dengan y = −βE dan Γ(3/2) = √π/2 diperoleh (√π/2)(−1/β)^(3/2)."},
+ {q:"Dengan β = −1/kT, bentuk akhir e^α untuk gas klasik adalah ...",
+  o:["e^α = BV(2πmkT)^(3/2) / N","e^α = N / [BV(2πmkT)^(3/2)]","e^α = N BV (2πmkT)^(3/2)","e^α = N / [BV(2πmkT)^(1/2)]"],
+  a:1,e:"Dari N = e^α BV (2πmkT)^(3/2) (Pers. 4.33) diperoleh e^α = N/[BV(2πmkT)^(3/2)]."},
+ {q:"Dari α = ln{N / [BV(2πmkT)^(3/2)]}, jika kerapatan partikel N/V dinaikkan pada suhu tetap, nilai α akan ...",
+  o:["Bertambah","Berkurang","Tetap","Menjadi nol"],
+  a:0,e:"α adalah logaritma dari N/V dikali faktor konstan pada T tetap, sehingga naik jika N/V naik (Pers. 4.34)."}
+];
+
+const L = ["A","B","C","D"];
+const form = document.getElementById("quiz");
+Q.forEach((it,i)=>{
+  const d = document.createElement("div");
+  d.className = "card q"; d.id = "q"+i;
+  const p = document.createElement("p");
+  const n = document.createElement("span"); n.className="n"; n.textContent = (i+1)+". ";
+  p.appendChild(n); p.appendChild(document.createTextNode(it.q));
+  d.appendChild(p);
+  it.o.forEach((t,j)=>{
+    const lb = document.createElement("label"); lb.className="opt";
+    const r = document.createElement("input"); r.type="radio"; r.name="q"+i; r.value=j;
+    r.addEventListener("change",updateProgress);
+    const s = document.createElement("span"); s.textContent = L[j]+". "+t;
+    lb.appendChild(r); lb.appendChild(s); d.appendChild(lb);
+  });
+  form.appendChild(d);
+});
+
+function answers(){
+  return Q.map((_,i)=>{
+    const c = form.querySelector('input[name="q'+i+'"]:checked');
+    return c ? +c.value : -1;
+  });
+}
+function updateProgress(){
+  const n = answers().filter(x=>x>=0).length;
+  document.getElementById("count").textContent = "Terjawab "+n+" / "+Q.length;
+  document.getElementById("pbar").style.width = (n/Q.length*100)+"%";
+}
+
+let last = null;
+document.getElementById("submit").addEventListener("click", async ()=>{
+  const err = document.getElementById("err"); err.textContent = "";
+  const nama = document.getElementById("nama").value.trim();
+  const nim = document.getElementById("nim").value.trim();
+  if(!nama || !nim){ err.textContent = "Isi nama dan NIM terlebih dahulu."; window.scrollTo({top:0,behavior:"smooth"}); return; }
+  const ans = answers();
+  const kosong = ans.map((a,i)=>a<0?i+1:null).filter(Boolean);
+  if(kosong.length){ err.textContent = "Soal belum dijawab: nomor "+kosong.join(", ")+"."; return; }
+
+  const btn = document.getElementById("submit"); btn.disabled = true;
+  let benar = 0;
+  ans.forEach((a,i)=>{
+    const ok = a===Q[i].a; if(ok) benar++;
+    const card = document.getElementById("q"+i);
+    card.querySelectorAll(".opt").forEach((lb,j)=>{
+      lb.querySelector("input").disabled = true;
+      if(j===Q[i].a) lb.classList.add("ok");
+      else if(j===a) lb.classList.add("bad");
+    });
+    const ex = document.createElement("div"); ex.className="exp";
+    ex.textContent = (ok?"Benar. ":"Salah. Jawaban yang tepat: "+L[Q[i].a]+". ")+Q[i].e;
+    card.appendChild(ex);
+  });
+  const skor = Math.round(benar/Q.length*100);
+  last = {waktu:new Date().toISOString(), nama, nim, benar, skor, jawaban:ans.map(a=>L[a])};
+
+  document.getElementById("score").textContent = skor;
+  document.getElementById("detail").textContent = benar+" benar dari "+Q.length+" soal.";
+  document.getElementById("result").style.display = "block";
+  document.getElementById("result").scrollIntoView({behavior:"smooth"});
+
+  const st = document.getElementById("sendstatus");
+  if(!CONFIG.ENDPOINT){
+    st.textContent = "Endpoint penyimpanan belum diatur, hasil tidak dikirim. Unduh CSV di bawah ini.";
+    return;
+  }
+  st.textContent = "Mengirim hasil ...";
+  try{
+    await fetch(CONFIG.ENDPOINT,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(last)});
+    st.textContent = "Hasil terkirim ke Google Sheets.";
+  }catch(e){
+    st.textContent = "Gagal mengirim hasil. Unduh CSV di bawah ini dan serahkan secara manual.";
+  }
+});
+
+document.getElementById("csv").addEventListener("click",()=>{
+  if(!last) return;
+  const head = ["Waktu","Nama","NIM","Benar","Skor"].concat(Q.map((_,i)=>"Q"+(i+1)));
+  const esc = v => '"'+String(v).replace(/"/g,'""')+'"';
+  const row = [last.waktu,last.nama,last.nim,last.benar,last.skor].concat(last.jawaban);
+  const blob = new Blob(["\ufeff"+head.map(esc).join(",")+"\n"+row.map(esc).join(",")],{type:"text/csv"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "hasil-kuis-bab4-"+last.nim+".csv"; a.click();
+});
+</script>
+</body>
+</html>
